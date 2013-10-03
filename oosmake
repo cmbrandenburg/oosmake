@@ -1,0 +1,139 @@
+#!/bin/bash
+
+# = WHAT IS THIS? =
+#
+# This wraps the 'make' command in order to try to find the correct
+# out-of-source build directory for making the current project. It does this
+# using a recursive ascent algorithm, as shown with the following examples.
+#
+# Example 1:
+#
+#     $P/                         (no makefile in this directory)
+#     $P/build/makefile
+#
+#   Running oosmake from $P is like running:
+#     cd $P/build && make
+#
+#   Or, alternately:
+#     make -C $P/build
+#
+# Example 2:
+#
+#     $P/
+#     $P/subdir1/                 (no makefile in this directory)
+#     $P/subdir2/                 (no makefile in this directory)
+#     $P/build/makefile
+#     $P/build/subdir1/makefile
+#     $P/build/subdir2/           (no makefile in this directory)
+#
+#   Running oosmake from $P is like running:
+#     cd $P/build && make
+#
+#   Running oosmake from $P/subdir1 is like running:
+#     cd $P/build/subdir1 && make
+#
+#   Running oosmake from $P/subdir2 will fail to find a makefile to run.
+#
+# Example 3:
+#
+#     $P/makefile
+#     $P/build/makefile
+#
+#   Running oosmake from $P is like running "make" from the $P directory. (Same
+#   as regular make--the out-of-source "build" directory is ignored.)
+#
+# Example 4:
+#
+#   Nested out-of-source directories lacking a makefile will be skipped.
+#
+#     $P/                         (no makefile in this directory)
+#     $P/subdir1/                 (no makefile in this directory)
+#     $P/subdir1/subdir2/         (no makefile in this directory)
+#     $P/build/makefile
+#     $P/build/subdir1/makefile
+#     $P/build/subdir1/subdir2/   (no makefile in this directory)
+#
+#   Running oosmake from $P/subdir1/subdir2 is like running:
+#     cd $P/build/subdir1 && make
+#
+#   Running oosmake from $P/subdir1 is like running:
+#     cd $P/build/subdir1 && make
+#
+# = FEATURES AND LIMITATIONS =
+#
+# - All command line options are passed as-is to the sub-make process. This
+# includes -C and -f, which will likely mess up what you're trying to do.
+#
+# - Out-of-source builds are detected by testing for the existence of well named
+# makefiles--GNUmakefile, Makefile, or makefile. Thus, running "oosmake -f
+# my-custom-makefile" in the directory where "my-custom-makefile" is located
+# will fail to run make in the current directory because oosmake is looking for
+# well named makefiles, not your custom-named makefile.
+#
+# - There's no limit to the number of nested subdirectories. The recursive
+# ascent algorithm will continue until either a makefile is found or else the
+# root file system directory ("/") is attempted. The guard against mistakenly
+# running an out-of-project makefile is that the out-of-source build directory
+# must match the ascent path. (See example #2 above.) This isn't failsafe, but
+# it makes the chance of running an out-of-project makefile unlikely.
+
+build_dirs="build"
+make_args=$@
+makefiles="GNUmakefile Makefile makefile"
+me=$(basename $0)
+
+die() {
+	echo "${me}: *** $@" 1>&2
+	exit 1
+}
+
+# Returns 0 if the given directory has a makefile, else non-zero.
+has_makefile() {
+	for m in ${makefiles}; do
+		if [ -f "$1/$m" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+run_make() {
+	make ${make_args}
+	exit $?
+}
+
+try_make() {
+	dir="$1"
+	if $(has_makefile "${dir}"); then
+		cd "${dir}" && run_make
+	fi
+}
+
+# First check the current directory.
+try_make .
+
+# Otherwise, try to find a build subdirectory with a makefile.
+path=""
+while [ true ]; do
+
+	# Try to find makefile in a build subdirectory.
+    orig_path="${path}"
+    while [ true ]; do
+    	for d in ${build_dirs}; do
+            try_make "$d/${path}"
+        done
+        if [ "${path}" == "." -o -z "${path}" ]; then
+            break
+        fi
+        path="$(dirname "${path}")"
+	done
+
+	# Ascend into the parent directory and try again.
+	cur="$(pwd)"
+	path="$(basename "${cur}")/${orig_path}"
+	cd ..
+	if [ "$(pwd)" == "${cur}" ]; then
+		exit 2 # no makefile found
+	fi
+done
+
