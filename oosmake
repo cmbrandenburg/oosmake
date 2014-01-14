@@ -77,7 +77,11 @@
 # must match the ascent path. (See example #2 above.) This isn't failsafe, but
 # it makes the chance of running an out-of-project makefile unlikely.
 
-build_dirs="build"
+if test "" == "${OOSMAKE_BUILD_DIRS}"; then
+	build_dirs="build"
+else
+	build_dirs="${OOSMAKE_BUILD_DIRS}"
+fi
 make_args=$@
 makefiles="GNUmakefile Makefile makefile"
 me=$(basename $0)
