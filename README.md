@@ -12,8 +12,8 @@ Out-of-source make wrapper
 out-of-source build directory or non-recursive makefile for the current
 directory. An out-of-source build directory is a directory used for
 separating build files, such as executables and object files, from the
-canonical files in a source project. Out-of-source builds are common
-when using CMake.
+canonical (upstream) files in a source project. Out-of-source builds are
+common when using CMake.
 
 You may find `oosmake` useful if you're (1) doing out-of-source or
 non-recursive builds and (2) using Vim. Rather than changing directories
@@ -25,9 +25,9 @@ build, a non-recursive build, or a normal in-source build.
 ## How does it work?
 
 `oosmake` works by recursively ascending the file system tree, starting
-in the current directory, until either it finds a makefile, an
-out-of-source makefile, or else runs out of directories. The following
-examples show `oosmake`'s behavior.
+in the current directory, until either it finds a in-source makefile or
+an out-of-source makefile, or else runs out of directories. The
+following examples show `oosmake`'s behavior.
 
 ### Example 1
 
@@ -52,19 +52,20 @@ Given a makefile in the current directory:
     $P/makefile
 
 Running `oosmake` from `$P` is like running `make` from the `$P`
-directory.
+directory. In other words, `oosmake` behaves the same as `make` when
+there's a makefile in the current directory.
 
 ### Example 3
 
-Given a project with an out-of-source build directory, but the root
+Given a project with an out-of-source build directory but the root
 project directory has a makefile, too:
 
     $P/makefile
     $P/build/makefile
 
 Running `oosmake` from `$P` is like running `make` from the `$P`
-directory. In other words, `oosmake` ignores the out-of-source build
-directory.
+directory. In other words, `oosmake` ignores an out-of-source build
+directory if it finds an in-source build directory.
 
 ### Example 4
 
