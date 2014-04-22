@@ -1,40 +1,46 @@
 #!/bin/bash
 
-# = WHAT IS THIS? =
+# # WHAT IS THIS? #
 #
-# This wraps the 'make' command in order to try to find the correct
-# out-of-source build directory for making the current project. It does this
-# using a recursive ascent algorithm, as shown with the following examples.
+# This wraps the `make` command in order to try to find the correct
+# out-of-source build directory or non-recursive makefile for the current
+# directory. It does this by using a recursive ascent algorithm, as shown in the
+# following examples.
 #
 # Example 1:
 #
 #     $P/                         (no makefile in this directory)
 #     $P/build/makefile
 #
-#   Running oosmake from $P is like running:
-#     cd $P/build && make
-#
-#   Or, alternately:
+#  Running oosmake from $P is like running:
 #     make -C $P/build
 #
 # Example 2:
 #
-#     $P/
-#     $P/subdir1/                 (no makefile in this directory)
-#     $P/subdir2/                 (no makefile in this directory)
-#     $P/build/makefile
-#     $P/build/subdir1/makefile
-#     $P/build/subdir2/           (no makefile in this directory)
+#     $P/makefile
 #
-#   Running oosmake from $P is like running:
-#     cd $P/build && make
-#
-#   Running oosmake from $P/subdir1 is like running:
-#     cd $P/build/subdir1 && make
-#
-#   Running oosmake from $P/subdir2 will fail to find a makefile to run.
+#  Running oosmake from $P is like running:
+#     make
 #
 # Example 3:
+#
+#     $P/                         (no makefile in this directory)
+#     $P/alpha/                   (no makefile in this directory)
+#     $P/bravo/                   (no makefile in this directory)
+#     $P/build/makefile
+#     $P/build/alpha/makefile
+#     $P/build/bravo/             (no makefile in this directory)
+#
+#   Running oosmake from $P is like running:
+#     make -C $P/build
+#
+#   Running oosmake from $P/alpha is like running:
+#     make -C $P/build/alpha
+#
+#   Running oosmake from $P/bravo is like running:
+#     make -C $P/build
+#
+# Example 4:
 #
 #     $P/makefile
 #     $P/build/makefile
@@ -42,40 +48,50 @@
 #   Running oosmake from $P is like running "make" from the $P directory. (Same
 #   as regular make--the out-of-source "build" directory is ignored.)
 #
-# Example 4:
+# Example 5:
 #
 #   Nested out-of-source directories lacking a makefile will be skipped.
 #
 #     $P/                         (no makefile in this directory)
-#     $P/subdir1/                 (no makefile in this directory)
-#     $P/subdir1/subdir2/         (no makefile in this directory)
+#     $P/alpha/                   (no makefile in this directory)
+#     $P/alpha/bravo/             (no makefile in this directory)
 #     $P/build/makefile
-#     $P/build/subdir1/makefile
-#     $P/build/subdir1/subdir2/   (no makefile in this directory)
+#     $P/build/alpha/makefile
+#     $P/build/alpha/bravo/       (no makefile in this directory)
 #
-#   Running oosmake from $P/subdir1/subdir2 is like running:
-#     cd $P/build/subdir1 && make
+#   Running oosmake from $P/alpha/bravo is like running:
+#     make -C $P/build/alpha
 #
-#   Running oosmake from $P/subdir1 is like running:
-#     cd $P/build/subdir1 && make
+#   Running oosmake from $P/alpha is like running:
+#     make -C $P/build/alpha
+#
+# Example 5:
+#
+#   Non-recursive makefile
+#
+#     $P/makefile
+#     $P/alpha/                   (no makefile in this directory)
+#     $P/alpha/bravo              (no makefile in this directory)
+#
+#   Running oosmake from $P/alpha is like running:
+#     make -C $P
+#
+#   Running oosmaek from $P/alpha/bravo is like running:
+#     make -C $P
+#
 #
 # = FEATURES AND LIMITATIONS =
 #
 # - All command line options are passed as-is to the sub-make process. This
 # includes -C and -f, which will likely mess up what you're trying to do.
 #
-# - Out-of-source builds are detected by testing for the existence of well named
-# makefiles--GNUmakefile, Makefile, or makefile. Thus, running "oosmake -f
-# my-custom-makefile" in the directory where "my-custom-makefile" is located
-# will fail to run make in the current directory because oosmake is looking for
-# well named makefiles, not your custom-named makefile.
-#
 # - There's no limit to the number of nested subdirectories. The recursive
 # ascent algorithm will continue until either a makefile is found or else the
 # root file system directory ("/") is attempted. The guard against mistakenly
 # running an out-of-project makefile is that the out-of-source build directory
-# must match the ascent path. (See example #2 above.) This isn't failsafe, but
-# it makes the chance of running an out-of-project makefile unlikely.
+# must match the ascent path. (See example #3 above.) This isn't failsafe, but
+# it makes the chance of mistakenly running an out-of-project makefile less
+# likely.
 
 if test "" == "${OOSMAKE_BUILD_DIRS}"; then
 	build_dirs="build"
@@ -83,7 +99,6 @@ else
 	build_dirs="${OOSMAKE_BUILD_DIRS}"
 fi
 make_args=$@
-makefiles="GNUmakefile Makefile makefile"
 me=$(basename $0)
 
 die() {
@@ -93,12 +108,10 @@ die() {
 
 # Returns 0 if the given directory has a makefile, else non-zero.
 has_makefile() {
-	for m in ${makefiles}; do
-		if [ -f "$1/$m" ]; then
-			return 0
-		fi
-	done
-	return 1
+    if make --dry-run -C "$1" >/dev/null 2>&1; then
+        return 0
+    fi
+    return 1
 }
 
 run_make() {
@@ -113,31 +126,32 @@ try_make() {
 	fi
 }
 
-# First check the current directory.
-try_make .
+s="" # stack
+while true; do
 
-# Otherwise, try to find a build subdirectory with a makefile.
-path=""
-while [ true ]; do
+    try_make .
 
-	# Try to find makefile in a build subdirectory.
-    orig_path="${path}"
+    # Try to find makefile in an out-of-source build directory. Try the
+    # most-nested directory first, and ascend the build directory tree until the
+    # working stack is empty.
+    ws="$s" # working stack
     while [ true ]; do
-    	for d in ${build_dirs}; do
-            try_make "$d/${path}"
+        for d in ${build_dirs}; do
+            try_make "$d/$ws"
         done
-        if [ "${path}" == "." -o -z "${path}" ]; then
+        if [ "$ws" == "." -o -z "$ws" ]; then
             break
         fi
-        path="$(dirname "${path}")"
-	done
+        ws="$(dirname "$ws")"
+    done
 
-	# Ascend into the parent directory and try again.
+	# Ascend to the parent directory and try again.
 	cur="$(pwd)"
-	path="$(basename "${cur}")/${orig_path}"
+    s="$(basename "$cur")/$s"
 	cd ..
 	if [ "$(pwd)" == "${cur}" ]; then
 		exit 2 # no makefile found
 	fi
+
 done
 
