@@ -119,6 +119,13 @@ Running `oosmake` from `$P/alpha` is like running:
   ${OOSMAKE_BUILD_DIRS}. Additional idiomatic patterns may be added in
   the future.
 
+* Out-of-source builds are detected by testing for the existence of well
+  named makefiles--GNUmakefile, Makefile, or makefile. Thus, running
+  "oosmake -f my-custom-makefile" in the directory where
+  "my-custom-makefile" is located will fail to run make in the current
+  directory because oosmake is looking for well named makefiles, not
+  your custom-named makefile.
+
 * There's no limit to the number of nested subdirectories. The recursive
   ascent algorithm will continue until either a makefile is found or
   else the root file system directory (`/`) is attempted. The guard

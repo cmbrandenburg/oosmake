@@ -85,6 +85,12 @@
 # - All command line options are passed as-is to the sub-make process. This
 # includes -C and -f, which will likely mess up what you're trying to do.
 #
+# - Out-of-source builds are detected by testing for the existence of well named
+# makefiles--GNUmakefile, Makefile, or makefile. Thus, running "oosmake -f
+# my-custom-makefile" in the directory where "my-custom-makefile" is located
+# will fail to run make in the current directory because oosmake is looking for
+# well named makefiles, not your custom-named makefile.
+#
 # - There's no limit to the number of nested subdirectories. The recursive
 # ascent algorithm will continue until either a makefile is found or else the
 # root file system directory ("/") is attempted. The guard against mistakenly
@@ -99,6 +105,7 @@ else
 	build_dirs="${OOSMAKE_BUILD_DIRS}"
 fi
 make_args=$@
+makefiles="GNUmakefile Makefile makefile"
 me=$(basename $0)
 
 die() {
@@ -108,9 +115,11 @@ die() {
 
 # Returns 0 if the given directory has a makefile, else non-zero.
 has_makefile() {
-    if make --dry-run -C "$1" >/dev/null 2>&1; then
-        return 0
-    fi
+    for m in ${makefiles}; do
+        if [ -f "$1/$m" ]; then
+            return 0
+        fi
+    done
     return 1
 }
 
