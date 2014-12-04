@@ -1,4 +1,5 @@
 #!/bin/bash
+# vim: set noet:
 
 # = WHAT IS THIS? =
 #
@@ -113,23 +114,23 @@ try_make() {
 	fi
 }
 
-# First check the current directory.
-try_make .
-
 # Otherwise, try to find a build subdirectory with a makefile.
 path=""
 while [ true ]; do
 
+	# Try current directory.
+	try_make .
+
 	# Try to find makefile in a build subdirectory.
-    orig_path="${path}"
-    while [ true ]; do
-    	for d in ${build_dirs}; do
-            try_make "$d/${path}"
-        done
-        if [ "${path}" == "." -o -z "${path}" ]; then
-            break
-        fi
-        path="$(dirname "${path}")"
+	orig_path="${path}"
+	while [ true ]; do
+		for d in ${build_dirs}; do
+			try_make "$d/${path}"
+		done
+		if [ "${path}" == "." -o -z "${path}" ]; then
+			break
+		fi
+		path="$(dirname "${path}")"
 	done
 
 	# Ascend into the parent directory and try again.
