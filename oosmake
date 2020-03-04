@@ -91,6 +91,12 @@ die() {
     exit 1
 }
 
+debug() {
+    if [ -n "${DEBUG}" ]; then
+        echo "${me}: >>> $@" 1>&2
+    fi
+}
+
 # Returns 0 if the given directory has a makefile, else non-zero.
 has_makefile() {
     for m in ${makefiles}; do
@@ -101,35 +107,41 @@ has_makefile() {
     return 1
 }
 
-run_make() {
-    make ${make_args}
-    exit $?
-}
-
 try_make() {
     dir="$1"
+    debug "try_make ${dir}"
     if $(has_makefile "${dir}"); then
-        cd "${dir}" && run_make
+        cd "${dir}" && make ${make_args}
+        exit $?
     fi
 }
 
-# Otherwise, try to find a build subdirectory with a makefile.
+# Try to find a suitable directory with a makefile.
+orig_pwd=$(pwd)
 path=""
 while [ true ]; do
+
+    debug "pwd=${PWD}, path=${path}"
 
     # Try current directory.
     try_make .
 
-    # Try to find makefile in a build subdirectory.
+    # Try to find a makefile in a build subdirectory.
     orig_path="${path}"
+    have_build_dir=1
     while [ true ]; do
+        have_build_dir=0
         for d in ${build_dirs}; do
+            test -d "$d" && have_build_dir=1
             try_make "$d/${path}"
         done
-        if [ "${path}" == "." -o -z "${path}" ]; then
+        if [ -z "${path}" ]; then
             break
         fi
         path="$(dirname "${path}")"
+        if [ "${path}" == "." ]; then
+            path=""
+        fi
     done
 
     # Ascend into the parent directory and try again.
@@ -137,7 +149,9 @@ while [ true ]; do
     path="$(basename "${cur}")/${orig_path}"
     cd ..
     if [ "$(pwd)" == "${cur}" ]; then
-        exit 2 # no makefile found
+        cd "${orig_pwd}" || exit $?
+        debug 'no makefile found, running make in current directory anyway'
+        make ${make_args}
+        exit $?
     fi
 done
-
