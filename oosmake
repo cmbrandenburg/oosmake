@@ -1,5 +1,4 @@
 #!/bin/bash
-# vim: set noet:
 
 # = WHAT IS THIS? =
 #
@@ -79,66 +78,66 @@
 # it makes the chance of running an out-of-project makefile unlikely.
 
 if test "" == "${OOSMAKE_BUILD_DIRS}"; then
-	build_dirs="build"
+    build_dirs="build"
 else
-	build_dirs="${OOSMAKE_BUILD_DIRS}"
+    build_dirs="${OOSMAKE_BUILD_DIRS}"
 fi
 make_args=$@
 makefiles="GNUmakefile Makefile makefile"
 me=$(basename $0)
 
 die() {
-	echo "${me}: *** $@" 1>&2
-	exit 1
+    echo "${me}: *** $@" 1>&2
+    exit 1
 }
 
 # Returns 0 if the given directory has a makefile, else non-zero.
 has_makefile() {
-	for m in ${makefiles}; do
-		if [ -f "$1/$m" ]; then
-			return 0
-		fi
-	done
-	return 1
+    for m in ${makefiles}; do
+        if [ -f "$1/$m" ]; then
+            return 0
+        fi
+    done
+    return 1
 }
 
 run_make() {
-	make ${make_args}
-	exit $?
+    make ${make_args}
+    exit $?
 }
 
 try_make() {
-	dir="$1"
-	if $(has_makefile "${dir}"); then
-		cd "${dir}" && run_make
-	fi
+    dir="$1"
+    if $(has_makefile "${dir}"); then
+        cd "${dir}" && run_make
+    fi
 }
 
 # Otherwise, try to find a build subdirectory with a makefile.
 path=""
 while [ true ]; do
 
-	# Try current directory.
-	try_make .
+    # Try current directory.
+    try_make .
 
-	# Try to find makefile in a build subdirectory.
-	orig_path="${path}"
-	while [ true ]; do
-		for d in ${build_dirs}; do
-			try_make "$d/${path}"
-		done
-		if [ "${path}" == "." -o -z "${path}" ]; then
-			break
-		fi
-		path="$(dirname "${path}")"
-	done
+    # Try to find makefile in a build subdirectory.
+    orig_path="${path}"
+    while [ true ]; do
+        for d in ${build_dirs}; do
+            try_make "$d/${path}"
+        done
+        if [ "${path}" == "." -o -z "${path}" ]; then
+            break
+        fi
+        path="$(dirname "${path}")"
+    done
 
-	# Ascend into the parent directory and try again.
-	cur="$(pwd)"
-	path="$(basename "${cur}")/${orig_path}"
-	cd ..
-	if [ "$(pwd)" == "${cur}" ]; then
-		exit 2 # no makefile found
-	fi
+    # Ascend into the parent directory and try again.
+    cur="$(pwd)"
+    path="$(basename "${cur}")/${orig_path}"
+    cd ..
+    if [ "$(pwd)" == "${cur}" ]; then
+        exit 2 # no makefile found
+    fi
 done
 

@@ -4,18 +4,18 @@ fail=0
 
 oosmake="$(pwd)/../oosmake"
 for i in case-*; do
-	echo -n "$i… "
-	cd "$i"
-	got=$(. prep && "${oosmake}")
-	exp=$(echo -n $(readlink -f $(pwd)) && cat expect)
-	if [ "${got}" == "${exp}" ]; then
-		echo OK
-	else
-		echo FAIL
-		echo expected: ${exp}, got: ${got}
-		fail=1
-	fi
-	cd ..
+    echo -n "$i… "
+    cd "$i"
+    got=$(. prep && "${oosmake}")
+    exp=$(echo -n $(readlink -f $(pwd)) && cat expect)
+    if [ "${got}" == "${exp}" ]; then
+        echo OK
+    else
+        echo FAIL
+        echo expected: ${exp}, got: ${got}
+        fail=1
+    fi
+    cd ..
 done
 
 exit ${fail}
