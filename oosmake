@@ -111,8 +111,7 @@ try_make() {
     dir="$1"
     debug "try_make ${dir}"
     if $(has_makefile "${dir}"); then
-        cd "${dir}" && make ${make_args}
-        exit $?
+        cd "${dir}" && exec make ${make_args}
     fi
 }
 
@@ -151,7 +150,6 @@ while [ true ]; do
     if [ "$(pwd)" == "${cur}" ]; then
         cd "${orig_pwd}" || exit $?
         debug 'no makefile found, running make in current directory anyway'
-        make ${make_args}
-        exit $?
+        exec make ${make_args}
     fi
 done
